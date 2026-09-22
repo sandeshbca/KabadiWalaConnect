@@ -27,18 +27,24 @@ import { CitizenDashboard } from "@/components/dashboard/CitizenDashboard";
 import { CollectorDashboard } from "@/components/dashboard/CollectorDashboard";
 import { MapPanel } from "@/components/dashboard/MapPanel";
 import { RecyclerDashboard } from "@/components/dashboard/RecyclerDashboard";
-import { RoleTabs } from "@/components/dashboard/RoleTabs";
+import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
+import { HistoryPanel } from "@/components/dashboard/HistoryPanel";
+import { NearbyCollectorsPanel } from "@/components/dashboard/NearbyCollectorsPanel";
+import { FeedbackPanel } from "@/components/dashboard/FeedbackPanel";
 import { Card, Modal } from "@/components/ui";
 import {
   AnalyticsOverview,
   apiRoles,
+  CollectorStats,
   InventoryListing,
   MarketPrice,
+  NearbyCollector,
   PickupRequest,
   Role,
   roleContent,
   roleRoutes,
   SessionUser,
+  TransactionRow,
 } from "@/lib/types";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
@@ -46,6 +52,7 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 type ApiPickup = {
   _id: string;
   name?: string;
+  phone?: string;
   material: string;
   weightKg?: number;
   description?: string;
@@ -54,7 +61,17 @@ type ApiPickup = {
   status: "requested" | "assigned" | "collected" | "verified";
   scheduledFor?: string;
   createdAt?: string;
-  userId?: { name?: string };
+  paymentMethod?: "cash" | "upi";
+  paymentStatus?: "pending" | "paid";
+  estimatedAmount?: number;
+  pricePerKg?: number;
+  userId?: { name?: string; phone?: string; location?: { area?: string } };
+  assignedCollector?: {
+    name?: string;
+    phone?: string;
+    location?: { area?: string };
+    ratingAvg?: number;
+  };
 };
 
 type ApiInventory = {
@@ -108,6 +125,15 @@ export function DashboardShell({ role }: { role: Role }) {
   const [stockOpen, setStockOpen] = useState(false);
   const [scanOpen, setScanOpen] = useState(false);
   const [scan, setScan] = useState<string>();
+  const [scanSuggestions, setScanSuggestions] = useState<string[]>([]);
+  const [section, setSection] = useState("home");
+  const [transactions, setTransactions] = useState<TransactionRow[]>([]);
+  const [nearby, setNearby] = useState<NearbyCollector[]>([]);
+  const [feedbackItems, setFeedbackItems] = useState<
+    { id: string; rating: number; comment?: string; from?: string }[]
+  >([]);
+  const [collectorStats, setCollectorStats] = useState<CollectorStats>();
+  const [estimateHint, setEstimateHint] = useState("");
   const [busyId, setBusyId] = useState("");
   const [saving, setSaving] = useState(false);
   const content = roleContent[role];
@@ -133,10 +159,39 @@ export function DashboardShell({ role }: { role: Role }) {
     if (!token) return;
     try {
       const jobs: Promise<void>[] = [];
+      jobs.push(
+        authorizedFetch("/api/pickups").then((items: ApiPickup[]) =>
+          setRequests(items.map(toPickup)),
+        ),
+      );
+      jobs.push(
+        authorizedFetch("/api/transactions").then((items: ApiTransaction[]) =>
+          setTransactions(items.map(toTransaction)),
+        ),
+      );
+      jobs.push(
+        authorizedFetch("/api/market/prices").then((items: MarketPrice[]) =>
+          setMarketPrices(items),
+        ),
+      );
+      if (role === "Citizen" || role === "Recycler") {
+        jobs.push(
+          authorizedFetch("/api/nearby/collectors").then(
+            (items: NearbyCollector[]) => setNearby(items),
+          ),
+        );
+      }
+      if (role === "Collector") {
+        jobs.push(
+          authorizedFetch("/api/stats/collector").then((data: CollectorStats) =>
+            setCollectorStats(data),
+          ),
+        );
+      }
       if (role === "Citizen" || role === "Collector") {
         jobs.push(
-          authorizedFetch("/api/pickups").then((items: ApiPickup[]) =>
-            setRequests(items.map(toPickup)),
+          authorizedFetch("/api/feedback").then(
+            (items: ApiFeedback[]) => setFeedbackItems(items.map(toFeedback)),
           ),
         );
       }
@@ -158,11 +213,6 @@ export function DashboardShell({ role }: { role: Role }) {
         jobs.push(
           authorizedFetch("/api/admin/team").then((items: SessionUser[]) =>
             setTeam(items),
-          ),
-        );
-        jobs.push(
-          authorizedFetch("/api/market/prices").then((items: MarketPrice[]) =>
-            setMarketPrices(items),
           ),
         );
       }
@@ -251,6 +301,8 @@ export function DashboardShell({ role }: { role: Role }) {
     payload.append("material", String(data.get("material")));
     payload.append("weightKg", String(data.get("weight")));
     payload.append("address", String(data.get("area")));
+    payload.append("phone", String(data.get("phone") || user?.phone || ""));
+    payload.append("paymentMethod", String(data.get("paymentMethod") || "cash"));
     payload.append("description", String(data.get("description") || ""));
     if (data.get("scheduledFor"))
       payload.append("scheduledFor", String(data.get("scheduledFor")));
@@ -373,6 +425,20 @@ export function DashboardShell({ role }: { role: Role }) {
     }
   };
 
+  const submitFeedback = async (
+    pickupId: string,
+    rating: number,
+    comment: string,
+  ) => {
+    await authorizedFetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pickupId, rating, comment }),
+    });
+    setNotice("Thank you — your rating was saved");
+    await loadWorkspace();
+  };
+
   const identify = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -386,6 +452,9 @@ export function DashboardShell({ role }: { role: Role }) {
         body: data,
       });
       setScan(`${result.material} · ${result.confidence}% confidence`);
+      setScanSuggestions(
+        Array.isArray(result.suggestions) ? result.suggestions : [],
+      );
     } catch (reason) {
       setScan(undefined);
       setError(messageOf(reason));
@@ -412,11 +481,7 @@ export function DashboardShell({ role }: { role: Role }) {
         <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-200/50 blur-3xl" />
         <div className="relative mx-auto flex max-w-7xl flex-col gap-7 px-5 py-10 md:px-8 md:py-12 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-white px-3 py-2 text-xs font-bold text-emerald-700">
-              <CheckCircle2 size={14} />
-              {content.eyebrow.toUpperCase()}
-            </p>
-            <h1 className="mt-4 max-w-3xl text-4xl font-black tracking-[-.045em] text-forest md:text-6xl">
+            <h1 className="max-w-3xl text-4xl font-black tracking-[-.045em] text-forest md:text-6xl">
               {content.title}
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
@@ -443,9 +508,15 @@ export function DashboardShell({ role }: { role: Role }) {
       </header>
 
       <section className="mx-auto max-w-7xl px-5 py-7 md:px-8 md:py-9">
-        <RoleTabs active={role} />
         {error && <ErrorBanner error={error} />}
-        <div className="mt-5 grid gap-6 xl:grid-cols-[minmax(0,1.5fr)_340px]">
+        <div className="mt-5 flex flex-col gap-6 xl:flex-row">
+          <DashboardSidebar
+            role={role}
+            section={section}
+            onSection={setSection}
+            onScan={() => setScanOpen(true)}
+          />
+          <div className="grid min-w-0 flex-1 gap-6 xl:grid-cols-[minmax(0,1.5fr)_340px]">
           <div
             id={
               role === "Collector"
@@ -457,21 +528,50 @@ export function DashboardShell({ role }: { role: Role }) {
                     : undefined
             }
           >
-            {role === "Citizen" && (
+            {section === "history" && (
+              <HistoryPanel pickups={requests} transactions={transactions} />
+            )}
+            {section === "nearby" && (
+              <NearbyCollectorsPanel collectors={nearby} />
+            )}
+            {section === "feedback" && role === "Citizen" && (
+              <FeedbackPanel pickups={requests} onSubmit={submitFeedback} />
+            )}
+            {section === "feedback" && role === "Collector" && (
+              <Card className="p-6">
+                <h2 className="text-lg font-black text-forest">Your ratings</h2>
+                <ul className="mt-4 space-y-3">
+                  {feedbackItems.length ? (
+                    feedbackItems.map((f) => (
+                      <li key={f.id} className="rounded-xl bg-emerald-50 p-3 text-sm">
+                        <b>{f.rating}/5</b> {f.comment && <span>— {f.comment}</span>}
+                        {f.from && (
+                          <p className="mt-1 text-xs text-slate-500">From {f.from}</p>
+                        )}
+                      </li>
+                    ))
+                  ) : (
+                    <p className="text-sm text-slate-500">No feedback yet.</p>
+                  )}
+                </ul>
+              </Card>
+            )}
+            {section === "home" && role === "Citizen" && (
               <CitizenDashboard
                 pickups={requests}
                 bookPickup={() => setPickupOpen(true)}
               />
             )}
-            {role === "Collector" && (
+            {section === "home" && role === "Collector" && (
               <CollectorDashboard
                 requests={requests}
                 updateStatus={updatePickup}
                 addStock={() => setStockOpen(true)}
                 busyId={busyId}
+                stats={collectorStats}
               />
             )}
-            {role === "Recycler" && (
+            {section === "home" && role === "Recycler" && (
               <RecyclerDashboard
                 listings={listings}
                 reserve={reserveInventory}
@@ -479,7 +579,7 @@ export function DashboardShell({ role }: { role: Role }) {
                 analytics={analytics}
               />
             )}
-            {role === "Admin" && (
+            {section === "home" && role === "Admin" && (
               <AdminDashboard
                 team={team}
                 analytics={analytics}
@@ -487,6 +587,21 @@ export function DashboardShell({ role }: { role: Role }) {
                 busyMemberId={busyId}
                 updateMember={updateMember}
                 updateMarketPrice={updateMarketPrice}
+              />
+            )}
+            {section === "tracker" && role === "Citizen" && (
+              <CitizenDashboard
+                pickups={requests}
+                bookPickup={() => setPickupOpen(true)}
+              />
+            )}
+            {section === "earnings" && role === "Collector" && (
+              <CollectorDashboard
+                requests={requests}
+                updateStatus={updatePickup}
+                addStock={() => setStockOpen(true)}
+                busyId={busyId}
+                stats={collectorStats}
               />
             )}
           </div>
@@ -497,6 +612,7 @@ export function DashboardShell({ role }: { role: Role }) {
             notice={notice}
             openScanner={() => setScanOpen(true)}
           />
+          </div>
         </div>
       </section>
 
@@ -520,6 +636,28 @@ export function DashboardShell({ role }: { role: Role }) {
                 placeholder="Approximate weight in kg"
               />
               <Field name="area" placeholder="Pickup address or area" />
+              <Field
+                name="phone"
+                placeholder="Mobile number (10 digits)"
+                type="tel"
+                defaultValue={user?.phone}
+              />
+              <label className="block text-xs font-bold text-slate-600">
+                Payment method
+                <select
+                  name="paymentMethod"
+                  className="field mt-1.5 w-full rounded-xl border-slate-200 px-4 py-3 text-sm"
+                  defaultValue="cash"
+                >
+                  <option value="cash">Cash on pickup</option>
+                  <option value="upi">UPI</option>
+                </select>
+              </label>
+              <PriceEstimateField
+                marketPrices={marketPrices}
+                onHint={setEstimateHint}
+                hint={estimateHint}
+              />
               <TextArea
                 name="description"
                 placeholder="Additional details, quantity condition or pickup instructions"
@@ -560,6 +698,11 @@ export function DashboardShell({ role }: { role: Role }) {
                 placeholder="Your price per kg (₹)"
               />
               <Field name="area" placeholder="Store location or area" />
+              <Field
+                name="phone"
+                placeholder="Your mobile number for recyclers"
+                type="tel"
+              />
               <TextArea
                 name="description"
                 placeholder="Grade, condition, moisture, packaging or other details"
@@ -574,6 +717,7 @@ export function DashboardShell({ role }: { role: Role }) {
             close={() => {
               setScanOpen(false);
               setScan(undefined);
+              setScanSuggestions([]);
             }}
           >
             <ModalTitle
@@ -583,6 +727,13 @@ export function DashboardShell({ role }: { role: Role }) {
             {scan ? (
               <div className="mt-6 rounded-2xl border border-emerald-100 bg-emerald-50 p-5">
                 <b className="text-forest">{scan}</b>
+                {scanSuggestions.length > 0 && (
+                  <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-emerald-900">
+                    {scanSuggestions.map((s) => (
+                      <li key={s}>{s}</li>
+                    ))}
+                  </ul>
+                )}
                 <p className="mt-2 text-sm text-emerald-800">
                   Keep the material clean and dry before collection.
                 </p>
@@ -683,11 +834,25 @@ function DashboardAside({
   );
 }
 
+type ApiTransaction = {
+  _id: string;
+  amount: number;
+  method: "cash" | "upi";
+  status: string;
+  note?: string;
+  createdAt?: string;
+  pickupId?: { material?: string };
+};
+
 function toPickup(item: ApiPickup): PickupRequest {
+  const collector = item.assignedCollector;
+  const citizen = item.userId;
   return {
     id: item._id,
-    name: item.userId?.name || item.name || "Citizen",
+    name: citizen?.name || item.name || "Citizen",
+    phone: item.phone || citizen?.phone,
     waste: `${item.material}${item.weightKg ? ` · ${item.weightKg} kg` : ""}`,
+    material: item.material,
     weightKg: item.weightKg,
     description: item.description,
     imageUrl: assetUrl(item.imageUrl),
@@ -701,7 +866,77 @@ function toPickup(item: ApiPickup): PickupRequest {
         ? `Requested ${new Intl.DateTimeFormat("en-IN", { dateStyle: "medium" }).format(new Date(item.createdAt))}`
         : "Requested recently",
     status: pickupStatus[item.status],
+    paymentMethod: item.paymentMethod,
+    paymentStatus: item.paymentStatus,
+    estimatedAmount: item.estimatedAmount,
+    pricePerKg: item.pricePerKg,
+    citizen: citizen
+      ? {
+          name: citizen.name || item.name || "Citizen",
+          phone: item.phone || citizen.phone || "—",
+          address: item.address,
+        }
+      : undefined,
+    collector: collector
+      ? {
+          name: collector.name || "Collector",
+          phone: collector.phone || "—",
+          address: collector.location?.area || item.address,
+          ratingAvg: collector.ratingAvg,
+        }
+      : undefined,
   };
+}
+
+type ApiFeedback = {
+  _id: string;
+  rating: number;
+  comment?: string;
+  citizenId?: { name?: string };
+};
+
+function toFeedback(item: ApiFeedback) {
+  return {
+    id: item._id,
+    rating: item.rating,
+    comment: item.comment,
+    from: item.citizenId?.name,
+  };
+}
+
+function toTransaction(item: ApiTransaction): TransactionRow {
+  return {
+    id: item._id,
+    amount: item.amount,
+    method: item.method,
+    status: item.status,
+    note: item.note,
+    pickupMaterial: item.pickupId?.material,
+    createdAt: item.createdAt
+      ? new Intl.DateTimeFormat("en-IN", {
+          dateStyle: "medium",
+          timeStyle: "short",
+        }).format(new Date(item.createdAt))
+      : "—",
+  };
+}
+
+function estimateFromMarket(
+  material: string,
+  weight: string,
+  prices: MarketPrice[],
+) {
+  const needle = material.toLowerCase();
+  const rate =
+    prices.find((p) => p.material.toLowerCase() === needle) ||
+    prices.find(
+      (p) =>
+        needle.includes(p.material.toLowerCase()) ||
+        p.material.toLowerCase().includes(needle),
+    );
+  const w = Number(weight);
+  if (!rate || !w || w <= 0) return "";
+  return `Estimated ₹${Math.round(w * rate.pricePerKg * 100) / 100} (@ ₹${rate.pricePerKg}/kg)`;
 }
 
 function toInventory(item: ApiInventory): InventoryListing {
@@ -801,12 +1036,14 @@ function Field({
   type = "text",
   min,
   step,
+  defaultValue,
 }: {
   name: string;
   placeholder: string;
   type?: string;
   min?: string;
   step?: string;
+  defaultValue?: string;
 }) {
   return (
     <input
@@ -815,6 +1052,7 @@ function Field({
       type={type}
       min={min}
       step={step}
+      defaultValue={defaultValue}
       placeholder={placeholder}
       className="field rounded-xl border-slate-200 px-4 py-3 text-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
     />
@@ -855,6 +1093,33 @@ function ImageField({ label }: { label: string }) {
     </label>
   );
 }
+function PriceEstimateField({
+  marketPrices,
+  onHint,
+  hint,
+}: {
+  marketPrices: MarketPrice[];
+  onHint: (v: string) => void;
+  hint: string;
+}) {
+  return (
+    <div
+      onInput={(e) => {
+        const form = (e.target as HTMLElement).closest("form");
+        if (!form) return;
+        const material = String(
+          new FormData(form).get("material") || "",
+        );
+        const weight = String(new FormData(form).get("weight") || "");
+        onHint(estimateFromMarket(material, weight, marketPrices));
+      }}
+      className="rounded-xl border border-emerald-100 bg-emerald-50/80 px-4 py-2 text-xs font-semibold text-emerald-800"
+    >
+      {hint || "Enter material and weight for automatic market-based estimate."}
+    </div>
+  );
+}
+
 function SubmitButton({ saving, label }: { saving: boolean; label: string }) {
   return (
     <button

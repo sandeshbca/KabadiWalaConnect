@@ -1,5 +1,6 @@
 import { Router } from "express";
 import {
+  assignPickupToRecycler,
   createPickup,
   listPickups,
   updatePickupStatus,
@@ -20,4 +21,9 @@ pickupRoutes.patch(
   "/:id/status",
   allowRoles("collector", "recycler", "admin"),
   asyncHandler(updatePickupStatus),
+);
+pickupRoutes.post(
+  "/:id/assign-recycler",
+  allowRoles("collector", "admin"),
+  asyncHandler(assignPickupToRecycler),
 );

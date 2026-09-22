@@ -2,6 +2,17 @@
 
 import { useState } from "react";
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   BarChart3,
   CheckCircle2,
   PauseCircle,
@@ -23,9 +34,13 @@ type AdminProps = {
 };
 
 export function AdminDashboard({ team, analytics, marketPrices, busyMemberId, updateMember, updateMarketPrice }: AdminProps) {
-  const max = Math.max(...(analytics?.monthly || [1]));
   const activeTeam = team.filter((member) => member.active !== false).length;
   const pending = team.filter((member) => !member.verified && member.active !== false).length;
+  const chartData = (analytics?.monthly || []).map((kg, i) => ({
+    day: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][i],
+    kg,
+    pickups: Math.round(kg / 8),
+  }));
 
   return (
     <div className="space-y-6">
@@ -45,16 +60,28 @@ export function AdminDashboard({ team, analytics, marketPrices, busyMemberId, up
             </div>
             <Tag>Live data</Tag>
           </div>
-          <div className="mt-7 flex h-44 items-end gap-2 border-b border-emerald-100 pb-1">
-            {(analytics?.monthly || [0, 0, 0, 0, 0, 0, 0]).map((value, index) => (
-              <div className="group relative flex flex-1 flex-col justify-end" key={`${value}-${index}`}>
-                <span className="absolute -top-6 left-1/2 -translate-x-1/2 rounded bg-forest px-1.5 py-0.5 text-[10px] font-bold text-white opacity-0 transition group-hover:opacity-100">{value} kg</span>
-                <div style={{ height: `${Math.max(5, (value / max) * 100)}%` }} className={`rounded-t-lg transition-all ${index === 6 ? "bg-lime" : "bg-emerald-200 group-hover:bg-emerald-400"}`} />
-              </div>
-            ))}
+          <div className="mt-4 h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <ComposedChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#d1fae5" />
+                <XAxis dataKey="day" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Bar dataKey="pickups" fill="#84cc16" radius={[4, 4, 0, 0]} />
+                <Line type="monotone" dataKey="kg" stroke="#064e3b" strokeWidth={3} dot={{ r: 4 }} />
+              </ComposedChart>
+            </ResponsiveContainer>
           </div>
-          <div className="mt-3 grid grid-cols-7 text-center text-[10px] font-semibold text-slate-400">
-            {["M", "T", "W", "T", "F", "S", "S"].map((day, index) => <span key={`${day}-${index}`}>{day}</span>)}
+          <div className="mt-4 h-40">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#ecfdf5" />
+                <XAxis dataKey="day" hide />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Bar dataKey="kg" fill="#10b981" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </Card>
 

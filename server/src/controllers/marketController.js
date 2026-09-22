@@ -10,7 +10,7 @@ const initialPrices = [
 ];
 
 const publicPrice = (item) => ({
-  id: item.id,
+  id: String(item._id || item.id),
   material: item.material,
   pricePerKg: item.pricePerKg,
   trend: item.trend,

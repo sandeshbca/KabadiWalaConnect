@@ -1,20 +1,33 @@
 "use client";
 
 import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
   CheckCheck,
   ImageIcon,
   MapPin,
   PackagePlus,
+  Phone,
   Route,
+  User,
 } from "lucide-react";
-import { PickupRequest } from "@/lib/types";
+import { CollectorStats, PickupRequest } from "@/lib/types";
 import { Card, Tag } from "@/components/ui";
+import { ClickableImage } from "@/components/ui/ImageLightbox";
 
 export function CollectorDashboard({
   requests,
   updateStatus,
   addStock,
   busyId,
+  stats,
 }: {
   requests: PickupRequest[];
   updateStatus: (
@@ -23,48 +36,50 @@ export function CollectorDashboard({
   ) => void;
   addStock: () => void;
   busyId?: string;
+  stats?: CollectorStats;
 }) {
-  const newCount = requests.filter(
-    (request) => request.status === "New",
-  ).length;
-  const activeCount = requests.filter((request) =>
-    ["Accepted", "Collected"].includes(request.status),
-  ).length;
+  const newCount = requests.filter((request) => request.status === "New").length;
+  const chartData = (stats?.monthly || []).map((v, i) => ({
+    day: ["M", "T", "W", "T", "F", "S", "S"][i],
+    earnings: v,
+    kg: Math.round(v / 12),
+  }));
   return (
     <div className="space-y-6">
       <div className="grid gap-4 sm:grid-cols-3">
+        <QuickStat label="New requests" value={String(newCount)} detail="Waiting to be accepted" />
         <QuickStat
-          label="New requests"
-          value={String(newCount)}
-          detail="Waiting to be accepted"
+          label="Earnings"
+          value={`₹${stats?.earnings ?? 0}`}
+          detail={`${stats?.collectedKg ?? 0} kg collected`}
         />
         <QuickStat
-          label="On your route"
-          value={String(activeCount)}
-          detail="Active collection work"
+          label="Sold to recyclers"
+          value={`${stats?.soldKg ?? 0} kg`}
+          detail={`₹${stats?.soldValue ?? 0} value`}
         />
-        <Card className="flex flex-col justify-between bg-forest p-5 text-white">
-          <Route size={19} className="text-lime" />
-          <div>
-            <b className="text-2xl font-black">Route ready</b>
-            <p className="mt-1 text-xs text-emerald-100">
-              Use status updates to keep citizens informed.
-            </p>
-          </div>
-        </Card>
       </div>
+      <Card className="p-5">
+        <p className="text-xs font-bold uppercase text-emerald-600">Weekly earnings</p>
+        <div className="mt-4 h-52">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#d1fae5" />
+              <XAxis dataKey="day" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <Tooltip />
+              <Bar dataKey="earnings" fill="#064e3b" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </Card>
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-3 border-b border-emerald-100 p-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div>
             <p className="text-xs font-bold uppercase tracking-[.15em] text-emerald-600">
               Live pickup queue
             </p>
-            <h2 className="mt-1 text-lg font-black text-forest">
-              Nearby citizen requests
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              View photos, notes and location before accepting each job.
-            </p>
+            <h2 className="mt-1 text-lg font-black text-forest">Citizen requests</h2>
           </div>
           <Tag>{newCount} new</Tag>
         </div>
@@ -72,11 +87,11 @@ export function CollectorDashboard({
           {requests.length ? (
             requests.map((request) => (
               <div
-                className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:px-6"
+                className="flex flex-col gap-4 p-5 sm:flex-row sm:items-start sm:px-6"
                 key={request.id}
               >
                 {request.imageUrl ? (
-                  <img
+                  <ClickableImage
                     src={request.imageUrl}
                     alt={request.waste}
                     className="h-20 w-full rounded-xl object-cover sm:w-24"
@@ -88,19 +103,29 @@ export function CollectorDashboard({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <b className="text-sm text-forest">{request.name}</b>
                     <RequestTag status={request.status} />
                   </div>
                   <p className="mt-1 text-sm text-slate-700">{request.waste}</p>
+                  {request.citizen && (
+                    <div className="mt-2 rounded-xl border border-emerald-100 bg-emerald-50/50 p-3 text-xs">
+                      <p className="font-bold text-forest">Sender details</p>
+                      <p className="mt-1 flex items-center gap-1">
+                        <User size={12} /> {request.citizen.name}
+                      </p>
+                      <p className="flex items-center gap-1">
+                        <Phone size={12} /> {request.citizen.phone}
+                      </p>
+                      <p className="flex items-center gap-1">
+                        <MapPin size={12} /> {request.citizen.address}
+                      </p>
+                    </div>
+                  )}
                   {request.description && (
                     <p className="mt-1 text-xs leading-5 text-slate-500">
                       {request.description}
                     </p>
                   )}
-                  <p className="mt-1 flex items-center gap-1 text-xs text-emerald-700">
-                    <MapPin size={13} />
-                    {request.area} · {request.time}
-                  </p>
+                  <p className="mt-1 text-xs text-emerald-700">{request.time}</p>
                 </div>
                 <Action
                   request={request}
@@ -111,23 +136,16 @@ export function CollectorDashboard({
             ))
           ) : (
             <p className="p-8 text-center text-sm text-slate-500">
-              No requests in your route right now. New requests appear here
-              automatically.
+              No requests in your route right now.
             </p>
           )}
         </div>
       </Card>
       <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6">
         <div>
-          <p className="text-xs font-bold uppercase tracking-[.15em] text-emerald-600">
-            Material marketplace
-          </p>
-          <h2 className="mt-1 text-lg font-black text-forest">
-            Publish collected material
-          </h2>
+          <h2 className="text-lg font-black text-forest">Publish collected material</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Add material details and a photo for recyclers to browse and reserve
-            instantly.
+            Recyclers see your stock with contact and location.
           </p>
         </div>
         <button
@@ -152,10 +170,11 @@ function QuickStat({
 }) {
   return (
     <Card className="p-5">
-      <p className="text-xs font-bold uppercase tracking-[.12em] text-slate-400">
+      <Route size={18} className="text-emerald-600" />
+      <p className="mt-3 text-xs font-bold uppercase tracking-[.12em] text-slate-400">
         {label}
       </p>
-      <b className="mt-2 block text-3xl font-black tracking-tight text-forest">
+      <b className="mt-1 block text-3xl font-black tracking-tight text-forest">
         {value}
       </b>
       <p className="mt-1 text-xs text-slate-500">{detail}</p>

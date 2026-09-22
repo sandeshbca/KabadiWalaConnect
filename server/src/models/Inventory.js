@@ -15,6 +15,7 @@ const inventorySchema = new mongoose.Schema(
       default: "available",
     },
     reservedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    pickupSourceId: { type: mongoose.Schema.Types.ObjectId, ref: "Pickup" },
   },
   { timestamps: true },
 );

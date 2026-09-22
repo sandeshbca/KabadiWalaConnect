@@ -9,11 +9,7 @@ import { asyncHandler } from "../middleware/error.js";
 
 export const marketRoutes = Router();
 marketRoutes.use(requireAuth);
-marketRoutes.get(
-  "/prices",
-  allowRoles("collector", "recycler", "admin"),
-  asyncHandler(listMarketPrices),
-);
+marketRoutes.get("/prices", asyncHandler(listMarketPrices));
 marketRoutes.post(
   "/prices",
   allowRoles("admin"),

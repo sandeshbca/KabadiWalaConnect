@@ -16,6 +16,24 @@ const pickupSchema = new mongoose.Schema(
     scheduledFor: Date,
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
     assignedCollector: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    paymentMethod: { type: String, enum: ["cash", "upi"], default: "cash" },
+    paymentStatus: {
+      type: String,
+      enum: ["pending", "paid"],
+      default: "pending",
+    },
+    estimatedAmount: Number,
+    pricePerKg: Number,
+    inventoryListed: { type: Boolean, default: false },
+    lat: Number,
+    lng: Number,
+    statusHistory: [
+      {
+        status: String,
+        at: { type: Date, default: Date.now },
+        by: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+      },
+    ],
   },
   { timestamps: true },
 );

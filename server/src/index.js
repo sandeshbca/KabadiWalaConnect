@@ -18,6 +18,7 @@ import { ensureDefaultMarketPrices } from "./controllers/marketController.js";
 import { authRoutes } from "./routes/authRoutes.js";
 import { inventoryRoutes } from "./routes/inventoryRoutes.js";
 import { pickupRoutes } from "./routes/pickupRoutes.js";
+import { extraRoutes } from "./routes/extraRoutes.js";
 
 if (!process.env.JWT_SECRET)
   throw new Error("JWT_SECRET must be set in server/.env");
@@ -41,6 +42,7 @@ app.use("/api/inventory", inventoryRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/market", marketRoutes);
+app.use("/api", extraRoutes);
 app.post(
   "/api/scans/analyze",
   requireAuth,
@@ -60,6 +62,7 @@ io.use((socket, next) => {
 });
 io.on("connection", (socket) => {
   socket.join(`role:${socket.user.role}`);
+  if (socket.user.sub) socket.join(`user:${socket.user.sub}`);
   socket.emit("system:ready", {
     message: "Secure live collection feed connected",
   });

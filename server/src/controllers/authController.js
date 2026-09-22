@@ -11,7 +11,7 @@ const publicUser = (user) => ({
   location: user.location,
 });
 const issueToken = (user) =>
-  jwt.sign({ role: user.role }, process.env.JWT_SECRET, {
+  jwt.sign({ role: user.role }, process.env.JWT_SECRET || "development-only-change-this-before-production", {
     subject: user.id,
     expiresIn: process.env.JWT_EXPIRES_IN || "7d",
   });

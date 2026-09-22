@@ -9,7 +9,9 @@ const userSchema = new mongoose.Schema({
   verified: { type: Boolean, default: false },
   active: { type: Boolean, default: true },
   managerId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-  location: { area: String, lat: Number, lng: Number }
+  location: { area: String, lat: Number, lng: Number },
+  ratingAvg: { type: Number, default: 0 },
+  ratingCount: { type: Number, default: 0 },
 }, { timestamps: true });
 userSchema.pre("save", async function hashPassword(next) { if (!this.isModified("password")) return next(); this.password = await bcrypt.hash(this.password, 12); next(); });
 userSchema.methods.comparePassword = function comparePassword(candidate) { return bcrypt.compare(candidate, this.password); };
