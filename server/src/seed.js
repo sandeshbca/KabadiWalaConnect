@@ -95,7 +95,7 @@ async function upsertUser(entry) {
 
 async function run() {
   const uri =
-    process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/kabadiconnect2";
+    process.env.MONGODB_URI || "mongodb+srv://SandeshBCA:sandesh123@bca.t2lrnyv.mongodb.net/?appName=BCA";
   await mongoose.connect(uri);
   console.log("Connected to MongoDB");
 
