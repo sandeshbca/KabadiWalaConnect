@@ -73,7 +73,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 mongoose
-  .connect(process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/kabadiconnect2")
+  .connect(process.env.MONGODB_URI || "mongodb+srv://SandeshBCA:sandesh123@bca.t2lrnyv.mongodb.net/?appName=BCA")
   .then(async () => {
     await ensureDefaultMarketPrices();
     httpServer.listen(process.env.PORT || 5000, () =>
