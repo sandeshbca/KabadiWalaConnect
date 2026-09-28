@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, CheckCircle2, LockKeyhole, Recycle } from "lucide-react";
 import { apiRoles, Role, roleRoutes } from "@/lib/types";
 
-const api = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const api = process.env.NEXT_PUBLIC_API_URL || " https://kabadiwalaconnect-jxh4.onrender.com";
 const roles: { value: Role; description: string }[] = [
   { value: "Citizen", description: "Book and track pickups" },
   { value: "Collector", description: "Manage route and stock" },
