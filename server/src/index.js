@@ -25,7 +25,7 @@ if (!process.env.JWT_SECRET)
   throw new Error("JWT_SECRET must be set in server/.env");
 const app = express();
 const httpServer = createServer(app);
-const origin = process.env.CLIENT_ORIGIN || "http://localhost:3000";
+const origin = process.env.CLIENT_ORIGIN || "https://kabadiwalaconnect-11.onrender.com";
 const io = new Server(httpServer, { cors: { origin } });
 const scanUpload = multer({
   storage: multer.memoryStorage(),
