@@ -31,7 +31,7 @@ export function AppNavigation({
             <Recycle size={20} />
           </span>
           <span>
-            <b className="block leading-4 text-forest">KabadiConnect</b>
+            <b className="block leading-4 text-forest">KabadiWalaConnect</b>
             <small className="text-[11px] text-slate-500">
               India&apos;s circular network
             </small>
