@@ -75,6 +75,11 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     setLangState(readStoredLang());
     setMounted(true);
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () =>
+        window.speechSynthesis.getVoices();
+    }
   }, []);
 
   const setLang = useCallback((c: LangCode) => {

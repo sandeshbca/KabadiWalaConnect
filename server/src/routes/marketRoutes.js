@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createMarketPrice,
   listMarketPrices,
+  updateLocalityMarketPrice,
   updateMarketPrice,
 } from "../controllers/marketController.js";
 import { allowRoles, requireAuth } from "../middleware/auth.js";
@@ -19,4 +20,9 @@ marketRoutes.patch(
   "/prices/:id",
   allowRoles("admin"),
   asyncHandler(updateMarketPrice),
+);
+marketRoutes.patch(
+  "/prices/:id/locality",
+  allowRoles("dealer", "admin"),
+  asyncHandler(updateLocalityMarketPrice),
 );

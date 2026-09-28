@@ -33,7 +33,7 @@ function rankUsers(me, users, kind) {
 export async function nearbyCollectors(req, res) {
   const me = await User.findById(req.user.id).select("location role");
   const collectors = await User.find({
-    role: "collector",
+    role: { $in: ["collector", "dealer"] },
     active: { $ne: false },
     verified: true,
   }).select("name phone location ratingAvg ratingCount");

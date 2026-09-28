@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Recycle, Route, ShieldCheck, UserRound } from "lucide-react";
+import { BriefcaseBusiness, Recycle, Route, ShieldCheck, UserRound } from "lucide-react";
 import { Role, roleRoutes } from "@/lib/types";
 const icons = {
   Citizen: UserRound,
   Collector: Route,
   Recycler: Recycle,
+  "ScrapUncle Dealer": BriefcaseBusiness,
   Admin: ShieldCheck,
 };
 export function RoleTabs({ active }: { active: Role }) {

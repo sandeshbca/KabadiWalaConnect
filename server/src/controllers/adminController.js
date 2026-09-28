@@ -13,9 +13,9 @@ const safeUser = (user) => ({
 
 export async function listTeam(req, res) {
   const role = req.query.role;
-  const filter = role && ["collector", "recycler"].includes(role)
+  const filter = role && ["collector", "dealer", "recycler"].includes(role)
     ? { role }
-    : { role: { $in: ["collector", "recycler"] } };
+    : { role: { $in: ["collector", "dealer", "recycler"] } };
   const team = await User.find(filter).sort({ createdAt: -1 }).limit(100);
   res.json(team.map(safeUser));
 }
@@ -25,7 +25,7 @@ export async function updateTeamMember(req, res) {
     return res.status(400).json({ message: "You cannot change your own access from this screen" });
   const member = await User.findOne({
     _id: req.params.id,
-    role: { $in: ["collector", "recycler"] },
+    role: { $in: ["collector", "dealer", "recycler"] },
   });
   if (!member) return res.status(404).json({ message: "Team member not found" });
   const { verified, active } = req.body;

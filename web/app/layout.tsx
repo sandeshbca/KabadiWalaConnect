@@ -3,7 +3,7 @@ import "./globals.css";
 import { AppProviders } from "@/components/providers/AppProviders";
 
 export const metadata: Metadata = {
-  title: "KabadiConnect | Smart recycling",
+  title: "KabadiWalaConnect | Smart recycling",
   description: "India's smart recycling network",
 };
 export default function RootLayout({

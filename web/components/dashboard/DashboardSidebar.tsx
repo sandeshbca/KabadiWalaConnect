@@ -41,7 +41,7 @@ export function DashboardSidebar({
     {
       id: "home",
       icon: LayoutDashboard,
-      label: "Home",
+      label: t("home"),
       action: () => onSection("home"),
     },
     {
@@ -75,7 +75,7 @@ export function DashboardSidebar({
       action: onScan,
     },
   ];
-  if (role === "Citizen" || role === "Recycler") {
+  if (role === "Citizen" || role === "Recycler" || role === "ScrapUncle Dealer") {
     items.splice(3, 0, {
       id: "nearby",
       icon: Recycle,
@@ -83,7 +83,7 @@ export function DashboardSidebar({
       action: () => onSection("nearby"),
     });
   }
-  if (role === "Collector") {
+  if (role === "Collector" || role === "ScrapUncle Dealer") {
     items.splice(4, 0, {
       id: "earnings",
       icon: Wallet,
@@ -103,6 +103,14 @@ export function DashboardSidebar({
       icon: Star,
       label: t("feedback"),
       action: () => onSection("feedback"),
+    });
+  }
+  if (role === "Citizen" || role === "ScrapUncle Dealer") {
+    items.push({
+      id: "wallet",
+      icon: Wallet,
+      label: "Wallet, rewards & invoices",
+      action: () => onSection("wallet"),
     });
   }
 

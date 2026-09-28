@@ -37,7 +37,7 @@ export async function greenImpact(req, res) {
 }
 
 export async function collectorStats(req, res) {
-  if (req.user.role !== "collector" && req.user.role !== "admin")
+  if (!["collector", "dealer", "admin"].includes(req.user.role))
     return res.status(403).json({ message: "Collectors only" });
   const collectorId =
     req.user.role === "admin" && req.query.collectorId

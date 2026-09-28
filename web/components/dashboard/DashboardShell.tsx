@@ -31,11 +31,14 @@ import { DashboardSidebar } from "@/components/dashboard/DashboardSidebar";
 import { HistoryPanel } from "@/components/dashboard/HistoryPanel";
 import { NearbyCollectorsPanel } from "@/components/dashboard/NearbyCollectorsPanel";
 import { FeedbackPanel } from "@/components/dashboard/FeedbackPanel";
+import { ScrapUncleDealerDashboard } from "@/components/dashboard/ScrapUncleDealerDashboard";
+import { WalletRewardsPanel } from "@/components/dashboard/WalletRewardsPanel";
 import { Card, Modal } from "@/components/ui";
 import {
   AnalyticsOverview,
   apiRoles,
   CollectorStats,
+  DigitalInvoice,
   InventoryListing,
   MarketPrice,
   NearbyCollector,
@@ -45,7 +48,10 @@ import {
   roleRoutes,
   SessionUser,
   TransactionRow,
+  WalletData,
 } from "@/lib/types";
+import { useI18n, speakText } from "@/lib/i18n";
+import { SCRAP_CATEGORIES, SERVICE_OPTIONS } from "@/lib/scrapCatalog";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
@@ -65,13 +71,31 @@ type ApiPickup = {
   paymentStatus?: "pending" | "paid";
   estimatedAmount?: number;
   pricePerKg?: number;
-  userId?: { name?: string; phone?: string; location?: { area?: string } };
+  userId?: {
+    name?: string;
+    phone?: string;
+    location?: { area?: string; lat?: number; lng?: number };
+  };
   assignedCollector?: {
     name?: string;
     phone?: string;
-    location?: { area?: string };
+    location?: { area?: string; lat?: number; lng?: number };
     ratingAvg?: number;
   };
+  inventoryListed?: boolean;
+  lat?: number;
+  lng?: number;
+  statusHistory?: { status: string; at: string }[];
+  serviceType?: string;
+  pickupMode?: "household" | "business" | "industrial";
+  recurring?: "once" | "weekly" | "monthly";
+  verificationCode?: string;
+  verificationStatus?: "pending" | "verified";
+  weighedKg?: number;
+  weightSource?: "digital" | "iot";
+  couponCode?: string;
+  couponBonus?: number;
+  invoiceNumber?: string;
 };
 
 type ApiInventory = {
@@ -81,9 +105,14 @@ type ApiInventory = {
   pricePerKg?: number;
   description?: string;
   imageUrl?: string;
-  location?: { area?: string };
+  location?: { area?: string; lat?: number; lng?: number };
   collectorName?: string;
-  collectorId?: { name?: string };
+  collectorId?: { name?: string; phone?: string; location?: { area?: string } };
+  reservedBy?: {
+    name?: string;
+    phone?: string;
+    location?: { area?: string; lat?: number; lng?: number };
+  };
   status: "available" | "reserved" | "collected";
 };
 
@@ -110,6 +139,7 @@ const reversePickupStatus = {
 } as const;
 
 export function DashboardShell({ role }: { role: Role }) {
+  const { t, roleTitle, roleSubtitle, roleAction, speechLang } = useI18n();
   const router = useRouter();
   const [token, setToken] = useState("");
   const [user, setUser] = useState<SessionUser>();
@@ -129,10 +159,14 @@ export function DashboardShell({ role }: { role: Role }) {
   const [section, setSection] = useState("home");
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [nearby, setNearby] = useState<NearbyCollector[]>([]);
+  const [nearbyRecyclers, setNearbyRecyclers] = useState<NearbyCollector[]>([]);
+  const [collectorStock, setCollectorStock] = useState<InventoryListing[]>([]);
   const [feedbackItems, setFeedbackItems] = useState<
     { id: string; rating: number; comment?: string; from?: string }[]
   >([]);
   const [collectorStats, setCollectorStats] = useState<CollectorStats>();
+  const [wallet, setWallet] = useState<WalletData>();
+  const [invoices, setInvoices] = useState<DigitalInvoice[]>([]);
   const [estimateHint, setEstimateHint] = useState("");
   const [busyId, setBusyId] = useState("");
   const [saving, setSaving] = useState(false);
@@ -174,21 +208,31 @@ export function DashboardShell({ role }: { role: Role }) {
           setMarketPrices(items),
         ),
       );
-      if (role === "Citizen" || role === "Recycler") {
+      jobs.push(
+        authorizedFetch("/api/wallet").then((data: WalletData) => setWallet(data)),
+        authorizedFetch("/api/invoices").then((data: DigitalInvoice[]) => setInvoices(data)),
+      );
+      if (role === "Citizen" || role === "Recycler" || role === "Collector" || role === "ScrapUncle Dealer") {
         jobs.push(
           authorizedFetch("/api/nearby/collectors").then(
             (items: NearbyCollector[]) => setNearby(items),
           ),
+          authorizedFetch("/api/nearby/recyclers").then(
+            (items: NearbyCollector[]) => setNearbyRecyclers(items),
+          ),
         );
       }
-      if (role === "Collector") {
+      if (role === "Collector" || role === "ScrapUncle Dealer") {
         jobs.push(
           authorizedFetch("/api/stats/collector").then((data: CollectorStats) =>
             setCollectorStats(data),
           ),
+          authorizedFetch("/api/inventory").then((items: ApiInventory[]) =>
+            setCollectorStock(items.map(toInventory)),
+          ),
         );
       }
-      if (role === "Citizen" || role === "Collector") {
+      if (role === "Citizen" || role === "Collector" || role === "ScrapUncle Dealer") {
         jobs.push(
           authorizedFetch("/api/feedback").then(
             (items: ApiFeedback[]) => setFeedbackItems(items.map(toFeedback)),
@@ -202,7 +246,7 @@ export function DashboardShell({ role }: { role: Role }) {
           ),
         );
       }
-      if (role === "Recycler" || role === "Admin") {
+      if (role === "Recycler" || role === "ScrapUncle Dealer" || role === "Admin") {
         jobs.push(
           authorizedFetch("/api/analytics/overview").then(
             (data: AnalyticsOverview) => setAnalytics(data),
@@ -217,14 +261,14 @@ export function DashboardShell({ role }: { role: Role }) {
         );
       }
       await Promise.all(jobs);
-      setNotice("Your workspace is synced and up to date");
+      setNotice(t("workspaceSynced"));
     } catch (reason) {
       setNotice(
         "Live connection unavailable — please refresh after the API is running",
       );
       setError(messageOf(reason));
     }
-  }, [authorizedFetch, role, token]);
+  }, [authorizedFetch, role, t, token]);
 
   useEffect(() => {
     const savedToken = sessionStorage.getItem("kc_token");
@@ -275,10 +319,32 @@ export function DashboardShell({ role }: { role: Role }) {
       setNotice(message);
       void loadWorkspace();
     };
-    socket.on("pickup:created", () =>
-      refresh("A pickup request was added to the live network"),
-    );
-    socket.on("pickup:updated", () => refresh("Pickup status updated"));
+    const mergePickup = (item: ApiPickup) => {
+      const mapped = toPickup(item);
+      setRequests((prev) => {
+        const index = prev.findIndex((p) => p.id === mapped.id);
+        if (index >= 0) {
+          const next = [...prev];
+          next[index] = mapped;
+          return next;
+        }
+        return [mapped, ...prev];
+      });
+    };
+    socket.on("pickup:live", (item: ApiPickup) => {
+      mergePickup(item);
+      setNotice(t("pickupUpdatedLive"));
+      speakText(t("pickupUpdatedLive"), speechLang);
+    });
+    socket.on("pickup:created", () => {
+      setNotice(t("pickupCreatedLive"));
+      speakText(t("pickupCreatedLive"), speechLang);
+      void loadWorkspace();
+    });
+    socket.on("pickup:updated", () => {
+      setNotice(t("pickupUpdatedLive"));
+      void loadWorkspace();
+    });
     socket.on("inventory:listed", () =>
       refresh("New collector stock is now available"),
     );
@@ -290,7 +356,7 @@ export function DashboardShell({ role }: { role: Role }) {
     return () => {
       socket.disconnect();
     };
-  }, [loadWorkspace, token]);
+  }, [loadWorkspace, speechLang, t, token]);
 
   const bookPickup = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -304,18 +370,39 @@ export function DashboardShell({ role }: { role: Role }) {
     payload.append("phone", String(data.get("phone") || user?.phone || ""));
     payload.append("paymentMethod", String(data.get("paymentMethod") || "cash"));
     payload.append("description", String(data.get("description") || ""));
+    payload.append("serviceType", String(data.get("serviceType") || "scrap_pickup"));
+    payload.append("pickupMode", String(data.get("pickupMode") || "household"));
+    payload.append("recurring", String(data.get("recurring") || "once"));
+    if (data.get("couponCode")) payload.append("couponCode", String(data.get("couponCode")));
     if (data.get("scheduledFor"))
       payload.append("scheduledFor", String(data.get("scheduledFor")));
     appendImage(payload, data.get("image"));
     try {
       await authorizedFetch("/api/pickups", { method: "POST", body: payload });
       setPickupOpen(false);
-      setNotice("Pickup request sent to nearby collectors");
+      setNotice("Pickup request sent to nearby partners — QR/OTP generated");
       await loadWorkspace();
     } catch (reason) {
       setError(messageOf(reason));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const assignToRecycler = async (id: string) => {
+    setBusyId(id);
+    setError("");
+    try {
+      await authorizedFetch(`/api/pickups/${id}/assign-recycler`, {
+        method: "POST",
+      });
+      setNotice(t("assignSuccess"));
+      speakText(t("assignSuccess"), speechLang);
+      await loadWorkspace();
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setBusyId("");
     }
   };
 
@@ -337,6 +424,104 @@ export function DashboardShell({ role }: { role: Role }) {
       setError(messageOf(reason));
     } finally {
       setBusyId("");
+    }
+  };
+
+  const recordWeight = async (
+    pickup: PickupRequest,
+    source: "digital" | "iot",
+  ) => {
+    const entry = window.prompt(
+      `${source === "iot" ? "IoT scale" : "Certified digital scale"} weight for ${pickup.material || pickup.waste} (kg)`,
+      String(pickup.weighedKg || pickup.weightKg || ""),
+    );
+    if (entry == null) return;
+    const weightKg = Number(entry);
+    if (!Number.isFinite(weightKg) || weightKg <= 0) {
+      setError("Enter a valid weight in kilograms.");
+      return;
+    }
+    setBusyId(pickup.id);
+    setError("");
+    try {
+      await authorizedFetch(`/api/pickups/${pickup.id}/weight`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ weightKg, source }),
+      });
+      setNotice(`${source === "iot" ? "IoT" : "Digital"} weight certified — settlement recalculated`);
+      await loadWorkspace();
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const verifyPickup = async (pickup: PickupRequest) => {
+    const code = window.prompt(
+      "Scan the customer QR or enter the ScrapUncle pickup OTP.",
+      pickup.verificationCode || "",
+    );
+    if (code == null) return;
+    setBusyId(pickup.id);
+    setError("");
+    try {
+      await authorizedFetch(`/api/pickups/${pickup.id}/verify-qr`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+      setNotice("QR / OTP verified — payment settled and invoice issued");
+      await loadWorkspace();
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const updateLocalityRate = async (price: MarketPrice) => {
+    const locality = window.prompt("Locality for this live rate", "Delhi");
+    if (!locality) return;
+    const current = price.localityRates?.find(
+      (rate) => rate.locality.toLowerCase() === locality.toLowerCase(),
+    )?.pricePerKg ?? price.pricePerKg;
+    const value = window.prompt(`${price.material} rate in ${locality} (₹/kg)`, String(current));
+    if (value == null) return;
+    const pricePerKg = Number(value);
+    if (!Number.isFinite(pricePerKg) || pricePerKg < 0) {
+      setError("Enter a valid locality rate.");
+      return;
+    }
+    setBusyId(price.id);
+    try {
+      await authorizedFetch(`/api/market/prices/${price.id}/locality`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locality, pricePerKg, trend: price.trend }),
+      });
+      setNotice(`${price.material} rate updated for ${locality}`);
+      await loadWorkspace();
+    } catch (reason) {
+      setError(messageOf(reason));
+    } finally {
+      setBusyId("");
+    }
+  };
+
+  const redeemReward = async () => {
+    setError("");
+    try {
+      await authorizedFetch("/api/wallet/redeem", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ points: 500 }),
+      });
+      setNotice("Reward points converted into a gift-card coupon");
+      await loadWorkspace();
+    } catch (reason) {
+      setError(messageOf(reason));
     }
   };
 
@@ -466,7 +651,11 @@ export function DashboardShell({ role }: { role: Role }) {
     else
       document
         .getElementById(
-          role === "Admin" ? "admin-panel" : `${role.toLowerCase()}-panel`,
+          role === "Admin"
+            ? "admin-panel"
+            : role === "ScrapUncle Dealer"
+              ? "dealer-panel"
+              : `${role.toLowerCase()}-panel`,
         )
         ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
@@ -482,10 +671,10 @@ export function DashboardShell({ role }: { role: Role }) {
         <div className="relative mx-auto flex max-w-7xl flex-col gap-7 px-5 py-10 md:px-8 md:py-12 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h1 className="max-w-3xl text-4xl font-black tracking-[-.045em] text-forest md:text-6xl">
-              {content.title}
+              {roleTitle(role)}
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 md:text-lg">
-              {content.subtitle}
+              {roleSubtitle(role)}
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
@@ -493,7 +682,7 @@ export function DashboardShell({ role }: { role: Role }) {
               onClick={primary}
               className="inline-flex items-center gap-2 rounded-2xl bg-forest px-5 py-3.5 text-sm font-bold text-white shadow-lg transition hover:bg-[#064c3b]"
             >
-              {content.action}
+              {roleAction(role)}
               <ChevronRight size={18} />
             </button>
             <button
@@ -501,7 +690,7 @@ export function DashboardShell({ role }: { role: Role }) {
               className="inline-flex items-center gap-2 rounded-2xl border border-emerald-200 bg-white px-5 py-3.5 text-sm font-bold text-forest transition hover:bg-emerald-50"
             >
               <Bot size={18} />
-              AI waste scan
+              {t("aiScan")}
             </button>
           </div>
         </div>
@@ -523,6 +712,8 @@ export function DashboardShell({ role }: { role: Role }) {
                 ? "collector-panel"
                 : role === "Recycler"
                   ? "recycler-panel"
+                  : role === "ScrapUncle Dealer"
+                    ? "dealer-panel"
                   : role === "Admin"
                     ? "admin-panel"
                     : undefined
@@ -532,12 +723,15 @@ export function DashboardShell({ role }: { role: Role }) {
               <HistoryPanel pickups={requests} transactions={transactions} />
             )}
             {section === "nearby" && (
-              <NearbyCollectorsPanel collectors={nearby} />
+              <NearbyCollectorsPanel
+                collectors={nearby}
+                recyclers={nearbyRecyclers}
+              />
             )}
             {section === "feedback" && role === "Citizen" && (
               <FeedbackPanel pickups={requests} onSubmit={submitFeedback} />
             )}
-            {section === "feedback" && role === "Collector" && (
+            {section === "feedback" && (role === "Collector" || role === "ScrapUncle Dealer") && (
               <Card className="p-6">
                 <h2 className="text-lg font-black text-forest">Your ratings</h2>
                 <ul className="mt-4 space-y-3">
@@ -556,6 +750,9 @@ export function DashboardShell({ role }: { role: Role }) {
                 </ul>
               </Card>
             )}
+            {section === "wallet" && (role === "Citizen" || role === "ScrapUncle Dealer") && (
+              <WalletRewardsPanel wallet={wallet} invoices={invoices} redeem={redeemReward} />
+            )}
             {section === "home" && role === "Citizen" && (
               <CitizenDashboard
                 pickups={requests}
@@ -569,6 +766,23 @@ export function DashboardShell({ role }: { role: Role }) {
                 addStock={() => setStockOpen(true)}
                 busyId={busyId}
                 stats={collectorStats}
+                assignToRecycler={assignToRecycler}
+                myStock={collectorStock}
+                verifyPickup={verifyPickup}
+              />
+            )}
+            {section === "home" && role === "ScrapUncle Dealer" && (
+              <ScrapUncleDealerDashboard
+                requests={requests}
+                stats={collectorStats}
+                busyId={busyId}
+                updateStatus={updatePickup}
+                recordWeight={recordWeight}
+                verifyPickup={verifyPickup}
+                assignToRecycler={assignToRecycler}
+                marketPrices={marketPrices}
+                updateLocalityRate={updateLocalityRate}
+                analytics={analytics}
               />
             )}
             {section === "home" && role === "Recycler" && (
@@ -602,6 +816,23 @@ export function DashboardShell({ role }: { role: Role }) {
                 addStock={() => setStockOpen(true)}
                 busyId={busyId}
                 stats={collectorStats}
+                assignToRecycler={assignToRecycler}
+                myStock={collectorStock}
+                verifyPickup={verifyPickup}
+              />
+            )}
+            {section === "earnings" && role === "ScrapUncle Dealer" && (
+              <ScrapUncleDealerDashboard
+                requests={requests}
+                stats={collectorStats}
+                busyId={busyId}
+                updateStatus={updatePickup}
+                recordWeight={recordWeight}
+                verifyPickup={verifyPickup}
+                assignToRecycler={assignToRecycler}
+                marketPrices={marketPrices}
+                updateLocalityRate={updateLocalityRate}
+                analytics={analytics}
               />
             )}
           </div>
@@ -626,8 +857,22 @@ export function DashboardShell({ role }: { role: Role }) {
             <form onSubmit={bookPickup} className="mt-6 space-y-3">
               <Field
                 name="material"
-                placeholder="Material, e.g. plastic bottles"
+                placeholder="Choose or enter a scrap category"
+                list="scrap-categories"
               />
+              <datalist id="scrap-categories">
+                {SCRAP_CATEGORIES.map((category) => <option key={category} value={category} />)}
+              </datalist>
+              <label className="block text-xs font-bold text-slate-600">
+                Service required
+                <select name="serviceType" className="field mt-1.5 w-full rounded-xl border-slate-200 px-4 py-3 text-sm" defaultValue="scrap_pickup">
+                  {SERVICE_OPTIONS.map((service) => <option key={service.value} value={service.value}>{service.label}</option>)}
+                </select>
+              </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block text-xs font-bold text-slate-600">Pickup type<select name="pickupMode" className="field mt-1.5 w-full rounded-xl border-slate-200 px-3 py-3 text-sm"><option value="household">Household</option><option value="business">Business</option><option value="industrial">Industrial</option></select></label>
+                <label className="block text-xs font-bold text-slate-600">Frequency<select name="recurring" className="field mt-1.5 w-full rounded-xl border-slate-200 px-3 py-3 text-sm"><option value="once">One-time</option><option value="weekly">Weekly recurring</option><option value="monthly">Monthly recurring</option></select></label>
+              </div>
               <Field
                 name="weight"
                 type="number"
@@ -658,6 +903,9 @@ export function DashboardShell({ role }: { role: Role }) {
                 onHint={setEstimateHint}
                 hint={estimateHint}
               />
+              {(wallet?.coupons || []).some((coupon) => coupon.active) && (
+                <label className="block text-xs font-bold text-slate-600">Apply reward coupon<select name="couponCode" className="field mt-1.5 w-full rounded-xl border-slate-200 px-4 py-3 text-sm"><option value="">No coupon</option>{wallet?.coupons.filter((coupon) => coupon.active).map((coupon) => <option key={coupon.code} value={coupon.code}>{coupon.code} · ₹{coupon.value} bonus</option>)}</select></label>
+              )}
               <TextArea
                 name="description"
                 placeholder="Additional details, quantity condition or pickup instructions"
@@ -870,11 +1118,30 @@ function toPickup(item: ApiPickup): PickupRequest {
     paymentStatus: item.paymentStatus,
     estimatedAmount: item.estimatedAmount,
     pricePerKg: item.pricePerKg,
+    lat: item.lat,
+    lng: item.lng,
+    inventoryListed: item.inventoryListed,
+    serviceType: item.serviceType,
+    pickupMode: item.pickupMode,
+    recurring: item.recurring,
+    verificationCode: item.verificationCode,
+    verificationStatus: item.verificationStatus,
+    weighedKg: item.weighedKg,
+    weightSource: item.weightSource,
+    couponCode: item.couponCode,
+    couponBonus: item.couponBonus,
+    invoiceNumber: item.invoiceNumber,
+    statusHistory: item.statusHistory?.map((h) => ({
+      status: h.status,
+      at: typeof h.at === "string" ? h.at : new Date(h.at).toISOString(),
+    })),
     citizen: citizen
       ? {
           name: citizen.name || item.name || "Citizen",
           phone: item.phone || citizen.phone || "—",
           address: item.address,
+          lat: item.lat ?? citizen.location?.lat,
+          lng: item.lng ?? citizen.location?.lng,
         }
       : undefined,
     collector: collector
@@ -883,6 +1150,8 @@ function toPickup(item: ApiPickup): PickupRequest {
           phone: collector.phone || "—",
           address: collector.location?.area || item.address,
           ratingAvg: collector.ratingAvg,
+          lat: collector.location?.lat,
+          lng: collector.location?.lng,
         }
       : undefined,
   };
@@ -940,6 +1209,7 @@ function estimateFromMarket(
 }
 
 function toInventory(item: ApiInventory): InventoryListing {
+  const buyer = item.reservedBy;
   return {
     id: item._id,
     material: item.material,
@@ -948,9 +1218,20 @@ function toInventory(item: ApiInventory): InventoryListing {
     description: item.description,
     imageUrl: assetUrl(item.imageUrl),
     area: item.location?.area || "Location not set",
+    lat: item.location?.lat,
+    lng: item.location?.lng,
     seller:
       item.collectorId?.name || item.collectorName || "Verified collector",
     status: inventoryStatus[item.status],
+    buyer: buyer
+      ? {
+          name: buyer.name || "Recycler",
+          phone: buyer.phone || "—",
+          address: buyer.location?.area || "Address not set",
+          lat: buyer.location?.lat,
+          lng: buyer.location?.lng,
+        }
+      : undefined,
   };
 }
 
@@ -983,6 +1264,11 @@ function sideMetric(
     return {
       value: `${listings.filter((item) => item.status === "Available").length}`,
       detail: "lots ready to reserve",
+    };
+  if (role === "ScrapUncle Dealer")
+    return {
+      value: `${requests.filter((request) => request.status !== "Verified").length}`,
+      detail: "active ScrapUncle pickups",
     };
   return {
     value: `${team.filter((member) => member.active !== false).length}`,
@@ -1037,6 +1323,7 @@ function Field({
   min,
   step,
   defaultValue,
+  list,
 }: {
   name: string;
   placeholder: string;
@@ -1044,6 +1331,7 @@ function Field({
   min?: string;
   step?: string;
   defaultValue?: string;
+  list?: string;
 }) {
   return (
     <input
@@ -1053,6 +1341,7 @@ function Field({
       min={min}
       step={step}
       defaultValue={defaultValue}
+      list={list}
       placeholder={placeholder}
       className="field rounded-xl border-slate-200 px-4 py-3 text-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50"
     />

@@ -3,7 +3,9 @@ import {
   assignPickupToRecycler,
   createPickup,
   listPickups,
+  recordDigitalWeight,
   updatePickupStatus,
+  verifyPickupQr,
 } from "../controllers/pickupController.js";
 import { allowRoles, requireAuth } from "../middleware/auth.js";
 import { asyncHandler } from "../middleware/error.js";
@@ -19,11 +21,21 @@ pickupRoutes.post(
 );
 pickupRoutes.patch(
   "/:id/status",
-  allowRoles("collector", "recycler", "admin"),
+  allowRoles("collector", "dealer", "recycler", "admin"),
   asyncHandler(updatePickupStatus),
+);
+pickupRoutes.patch(
+  "/:id/weight",
+  allowRoles("collector", "dealer", "admin"),
+  asyncHandler(recordDigitalWeight),
+);
+pickupRoutes.post(
+  "/:id/verify-qr",
+  allowRoles("collector", "dealer", "admin"),
+  asyncHandler(verifyPickupQr),
 );
 pickupRoutes.post(
   "/:id/assign-recycler",
-  allowRoles("collector", "admin"),
+  allowRoles("collector", "dealer", "admin"),
   asyncHandler(assignPickupToRecycler),
 );

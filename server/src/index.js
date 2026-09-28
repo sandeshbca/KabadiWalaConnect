@@ -19,6 +19,7 @@ import { authRoutes } from "./routes/authRoutes.js";
 import { inventoryRoutes } from "./routes/inventoryRoutes.js";
 import { pickupRoutes } from "./routes/pickupRoutes.js";
 import { extraRoutes } from "./routes/extraRoutes.js";
+import { commerceRoutes } from "./routes/commerceRoutes.js";
 
 if (!process.env.JWT_SECRET)
   throw new Error("JWT_SECRET must be set in server/.env");
@@ -43,6 +44,7 @@ app.use("/api/analytics", analyticsRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/market", marketRoutes);
 app.use("/api", extraRoutes);
+app.use("/api", commerceRoutes);
 app.post(
   "/api/scans/analyze",
   requireAuth,

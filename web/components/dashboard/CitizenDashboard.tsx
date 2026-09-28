@@ -1,11 +1,12 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { CalendarClock, ImageIcon, MapPin, Phone, Plus, User } from "lucide-react";
+import { CalendarClock, ImageIcon, MapPin, MessageCircle, Phone, Plus, QrCode, ReceiptText, User } from "lucide-react";
 import { PickupRequest } from "@/lib/types";
 import { Card, Tag } from "@/components/ui";
 import { ClickableImage } from "@/components/ui/ImageLightbox";
-import { PickupTracking } from "@/components/dashboard/PickupTracking";
+import { LivePickupTracker } from "@/components/dashboard/LivePickupTracker";
+import { MapLink } from "@/components/ui/MapLink";
 import { useI18n } from "@/lib/i18n";
 
 export function CitizenDashboard({
@@ -75,6 +76,10 @@ export function CitizenDashboard({
           >
             <Plus size={16} /> {t("schedulePickup")}
           </button>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <a href="https://wa.me/?text=Hi%20ScrapUncle%2C%20I%20want%20to%20book%20a%20scrap%20pickup." target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-white/10"><MessageCircle size={15} /> WhatsApp booking</a>
+            <a href="tel:+919811111113" className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-100 hover:bg-white/10"><Phone size={15} /> Phone booking</a>
+          </div>
         </Card>
       </div>
       <Card className="overflow-hidden">
@@ -83,7 +88,7 @@ export function CitizenDashboard({
             <p className="text-xs font-bold uppercase tracking-[.15em] text-emerald-600">
               {t("pickupTracker")}
             </p>
-            <h2 className="mt-1 text-lg font-black text-forest">Your requests</h2>
+            <h2 className="mt-1 text-lg font-black text-forest">{t("yourRequests")}</h2>
           </div>
           <button
             onClick={bookPickup}
@@ -112,20 +117,38 @@ export function CitizenDashboard({
                     <b className="text-sm text-forest">{pickup.waste}</b>
                     <PickupTag status={pickup.status} />
                   </div>
-                  <PickupTracking pickup={pickup} />
+                  <LivePickupTracker pickup={pickup} />
                   <p className="mt-2 flex items-center gap-1 text-xs text-slate-500">
                     <MapPin size={13} className="text-emerald-600" />
                     {pickup.area}
                   </p>
+                  <MapLink
+                    address={pickup.area}
+                    lat={pickup.lat}
+                    lng={pickup.lng}
+                    compact
+                  />
                   {pickup.estimatedAmount != null && (
                     <p className="mt-1 text-xs font-bold text-emerald-700">
                       {t("estimatedValue")}: ₹{pickup.estimatedAmount} ·{" "}
                       {pickup.paymentMethod?.toUpperCase()}
                     </p>
                   )}
+                  {pickup.verificationCode && pickup.status !== "Verified" && (
+                    <div className="mt-2 flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 p-3 text-xs text-emerald-900">
+                      <QrCode size={18} className="text-emerald-600" />
+                      <span><b>Pickup QR / OTP</b><br />Show this code at collection: {pickup.verificationCode}</span>
+                    </div>
+                  )}
+                  {pickup.weighedKg && (
+                    <p className="mt-2 text-xs font-bold text-emerald-700">Certified {pickup.weightSource === "iot" ? "IoT" : "digital"} weight: {pickup.weighedKg} kg</p>
+                  )}
+                  {pickup.invoiceNumber && (
+                    <p className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-emerald-700"><ReceiptText size={14} /> Digital invoice {pickup.invoiceNumber} issued</p>
+                  )}
                   {pickup.collector && pickup.status !== "New" && (
                     <div className="mt-3 rounded-xl bg-emerald-50 p-3 text-xs">
-                      <p className="font-bold text-forest">Assigned collector</p>
+                      <p className="font-bold text-forest">{t("assignedCollector")}</p>
                       <p className="mt-1 flex items-center gap-1">
                         <User size={12} /> {pickup.collector.name}
                       </p>

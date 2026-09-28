@@ -11,6 +11,7 @@ const roles: { value: Role; description: string }[] = [
   { value: "Citizen", description: "Book and track pickups" },
   { value: "Collector", description: "Manage route and stock" },
   { value: "Recycler", description: "Source verified material" },
+  { value: "ScrapUncle Dealer", description: "Run verified doorstep operations" },
 ];
 
 export function AuthForm({ mode }: { mode: "login" | "register" }) {
@@ -30,7 +31,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           name: String(form.get("name") || "").trim(),
           phone: String(form.get("phone") || "").trim(),
           password: String(form.get("password") || ""),
-          role: role.toLowerCase(),
+          role: role === "ScrapUncle Dealer" ? "dealer" : role.toLowerCase(),
+          referralCode: String(form.get("referralCode") || "").trim(),
           location: { area: String(form.get("area") || "").trim() },
         }
       : {
@@ -74,10 +76,10 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           <h2 className="mt-2 text-3xl font-black tracking-tight text-forest">{registering ? "Create your account" : "Welcome back"}</h2>
           <p className="mt-2 text-sm leading-6 text-slate-500">{registering ? "Pick your role now—you will get the right workspace immediately after registration." : "Sign in to continue to your role-specific dashboard."}</p>
           <form onSubmit={submit} className="mt-7 space-y-4">
-            {registering && <><Field name="name" label="Full name" placeholder="Your name" autoComplete="name" /><Field name="area" label="Your area" placeholder="e.g. HSR Layout, Bengaluru" autoComplete="address-level2" /></>}
+            {registering && <><Field name="name" label="Full name" placeholder="Your name" autoComplete="name" /><Field name="area" label="Your area" placeholder="e.g. HSR Layout, Bengaluru" autoComplete="address-level2" /><label className="block"><span className="mb-1.5 block text-sm font-bold text-forest">Referral code <small className="font-medium text-slate-400">(optional)</small></span><input name="referralCode" placeholder="e.g. SCRAP1234" className="field rounded-xl border-slate-200 px-3.5 py-3 text-sm transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-50" /></label></>}
             <Field name="phone" label="Mobile number" placeholder="10-digit mobile number" type="tel" autoComplete="tel" pattern="[6-9][0-9]{9}" />
             <Field name="password" label="Password" placeholder="At least 8 characters" type="password" autoComplete={registering ? "new-password" : "current-password"} minLength={8} />
-            {registering && <fieldset><legend className="mb-2 text-sm font-bold text-forest">I&apos;m joining as a</legend><div className="grid gap-2 sm:grid-cols-3">{roles.map((item) => <button key={item.value} type="button" onClick={() => setRole(item.value)} className={`rounded-xl border p-3 text-left transition ${role === item.value ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100" : "border-slate-200 hover:border-emerald-200"}`}><b className="block text-sm text-forest">{item.value}</b><span className="mt-1 block text-[11px] leading-4 text-slate-500">{item.description}</span></button>)}</div></fieldset>}
+            {registering && <fieldset><legend className="mb-2 text-sm font-bold text-forest">I&apos;m joining as a</legend><div className="grid gap-2 sm:grid-cols-2">{roles.map((item) => <button key={item.value} type="button" onClick={() => setRole(item.value)} className={`rounded-xl border p-3 text-left transition ${role === item.value ? "border-emerald-500 bg-emerald-50 ring-2 ring-emerald-100" : "border-slate-200 hover:border-emerald-200"}`}><b className="block text-sm text-forest">{item.value}</b><span className="mt-1 block text-[11px] leading-4 text-slate-500">{item.description}</span></button>)}</div></fieldset>}
             {error && <p role="alert" className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-700">{error}</p>}
             <button disabled={busy} className="flex w-full items-center justify-center gap-2 rounded-xl bg-forest p-3.5 text-sm font-bold text-white shadow-[0_10px_22px_rgba(7,95,73,.16)] transition hover:bg-[#064c3b] disabled:cursor-not-allowed disabled:opacity-60">{busy ? "Please wait…" : registering ? "Create account" : "Login securely"}<ArrowRight size={17} /></button>
           </form>

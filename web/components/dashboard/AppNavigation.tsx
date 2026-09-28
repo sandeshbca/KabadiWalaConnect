@@ -16,7 +16,7 @@ export function AppNavigation({
   user?: SessionUser;
 }) {
   const router = useRouter();
-  const { lang, setLang, t, speechLang } = useI18n();
+  const { lang, setLang, t, speechLang, roleTitle } = useI18n();
   const signOut = () => {
     sessionStorage.removeItem("kc_token");
     sessionStorage.removeItem("kc_user");
@@ -60,7 +60,7 @@ export function AppNavigation({
             title={t("speakPage")}
             onClick={() =>
               speakText(
-                `${user?.name || ""}. ${notice || "KabadiConnect dashboard"}`,
+                `${user?.name || ""}. ${roleTitle(role)}. ${notice || t("workspaceSynced")}`,
                 speechLang,
               )
             }

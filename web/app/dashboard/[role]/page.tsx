@@ -5,6 +5,7 @@ const routeRoles: Record<string, Role> = {
   citizen: "Citizen",
   collector: "Collector",
   recycler: "Recycler",
+  dealer: "ScrapUncle Dealer",
   admin: "Admin",
 };
 export default async function RoleDashboard({

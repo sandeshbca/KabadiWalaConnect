@@ -10,10 +10,10 @@ import { asyncHandler } from "../middleware/error.js";
 import { upload } from "../middleware/upload.js";
 export const inventoryRoutes = Router();
 inventoryRoutes.use(requireAuth);
-inventoryRoutes.get("/", allowRoles("collector", "recycler", "admin"), asyncHandler(listInventory));
+inventoryRoutes.get("/", allowRoles("collector", "dealer", "recycler", "admin"), asyncHandler(listInventory));
 inventoryRoutes.post(
   "/",
-  allowRoles("collector", "admin"),
+  allowRoles("collector", "dealer", "admin"),
   upload.single("image"),
   asyncHandler(createInventory),
 );
@@ -24,6 +24,6 @@ inventoryRoutes.post(
 );
 inventoryRoutes.patch(
   "/:id/status",
-  allowRoles("collector", "admin"),
+  allowRoles("collector", "dealer", "admin"),
   asyncHandler(updateInventoryStatus),
 );

@@ -1,6 +1,11 @@
-export type Role = "Citizen" | "Collector" | "Recycler" | "Admin";
+export type Role =
+  | "Citizen"
+  | "Collector"
+  | "Recycler"
+  | "ScrapUncle Dealer"
+  | "Admin";
 
-export type ApiRole = Lowercase<Role>;
+export type ApiRole = "citizen" | "collector" | "recycler" | "dealer" | "admin";
 
 export type SessionUser = {
   id: string;
@@ -19,6 +24,8 @@ export type ContactInfo = {
   phone: string;
   address: string;
   ratingAvg?: number;
+  lat?: number;
+  lng?: number;
 };
 
 export type PickupRequest = {
@@ -39,6 +46,20 @@ export type PickupRequest = {
   pricePerKg?: number;
   citizen?: ContactInfo;
   collector?: ContactInfo;
+  lat?: number;
+  lng?: number;
+  inventoryListed?: boolean;
+  statusHistory?: { status: string; at: string }[];
+  serviceType?: string;
+  pickupMode?: "household" | "business" | "industrial";
+  recurring?: "once" | "weekly" | "monthly";
+  verificationCode?: string;
+  verificationStatus?: "pending" | "verified";
+  weighedKg?: number;
+  weightSource?: "digital" | "iot";
+  couponCode?: string;
+  couponBonus?: number;
+  invoiceNumber?: string;
 };
 
 export type InventoryListing = {
@@ -51,6 +72,9 @@ export type InventoryListing = {
   description?: string;
   imageUrl?: string;
   status: "Available" | "Reserved" | "Collected";
+  buyer?: ContactInfo;
+  lat?: number;
+  lng?: number;
 };
 
 export type AnalyticsOverview = {
@@ -68,6 +92,32 @@ export type MarketPrice = {
   pricePerKg: number;
   trend: "up" | "down" | "stable";
   updatedAt?: string;
+  localityRates?: {
+    locality: string;
+    pricePerKg: number;
+    trend?: "up" | "down" | "stable";
+    updatedAt?: string;
+  }[];
+};
+
+export type WalletData = {
+  balance: number;
+  rewardPoints: number;
+  referralCode: string;
+  referralCount: number;
+  coupons: { code: string; title: string; value: number; active: boolean }[];
+};
+
+export type DigitalInvoice = {
+  id: string;
+  invoiceNumber: string;
+  material: string;
+  weightKg: number;
+  amount: number;
+  paymentMethod: "cash" | "upi";
+  status: string;
+  createdAt?: string;
+  serviceType?: string;
 };
 
 export type TransactionRow = {
@@ -88,6 +138,8 @@ export type NearbyCollector = {
   distanceKm: number;
   ratingAvg: number;
   ratingCount: number;
+  lat?: number;
+  lng?: number;
 };
 
 export type CollectorStats = {
@@ -114,6 +166,7 @@ export const roleRoutes: Record<Role, string> = {
   Citizen: "/dashboard/citizen",
   Collector: "/dashboard/collector",
   Recycler: "/dashboard/recycler",
+  "ScrapUncle Dealer": "/dashboard/dealer",
   Admin: "/dashboard/admin",
 };
 
@@ -121,6 +174,7 @@ export const apiRoles: Record<ApiRole, Role> = {
   citizen: "Citizen",
   collector: "Collector",
   recycler: "Recycler",
+  dealer: "ScrapUncle Dealer",
   admin: "Admin",
 };
 
@@ -130,29 +184,31 @@ export const roleContent: Record<
 > = {
   Citizen: {
     title: "Your waste can create real value.",
-    subtitle:
-      "Schedule a trusted pickup, track it live, and see the impact of every kilogram you recycle.",
+    subtitle: "Schedule pickup, track live, get paid.",
     action: "Schedule pickup",
     metric: "Your impact",
   },
   Collector: {
-    title: "Plan a smarter, more profitable route.",
-    subtitle:
-      "Accept nearby pickup requests, update collection progress, and publish verified material in one place.",
-    action: "View pickup queue",
+    title: "Smarter routes, more profit.",
+    subtitle: "Maps, collect, assign to recyclers.",
+    action: "View queue",
     metric: "Route progress",
   },
   Recycler: {
-    title: "Reliable material supply, when you need it.",
-    subtitle:
-      "Reserve verified stock from local collectors and monitor supply trends across the network.",
+    title: "Reliable material supply.",
+    subtitle: "Reserve nearby collector stock.",
     action: "Browse material",
     metric: "Live supply",
   },
+  "ScrapUncle Dealer": {
+    title: "Doorstep operations, verified.",
+    subtitle: "Run QR-verified pickups, certified weighing and instant settlements.",
+    action: "Open operations",
+    metric: "ScrapUncle operations",
+  },
   Admin: {
-    title: "Build a trusted circular city.",
-    subtitle:
-      "Manage your field network, verify partners, and turn live operational data into better decisions.",
+    title: "Trusted circular city.",
+    subtitle: "Manage network and prices.",
     action: "Manage team",
     metric: "Network health",
   },

@@ -24,7 +24,7 @@ export async function listFeedback(req, res) {
   const filter =
     req.user.role === "admin"
       ? {}
-      : req.user.role === "collector"
+      : ["collector", "dealer"].includes(req.user.role)
         ? { collectorId: req.user.id }
         : { citizenId: req.user.id };
   const items = await Feedback.find(filter)

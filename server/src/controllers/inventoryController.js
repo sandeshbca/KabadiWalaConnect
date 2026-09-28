@@ -2,11 +2,12 @@ import { Inventory } from "../models/Inventory.js";
 
 export async function listInventory(req, res) {
   const filter =
-    req.user.role === "collector"
+    ["collector", "dealer"].includes(req.user.role)
       ? { collectorId: req.user.id }
       : { status: "available" };
   const items = await Inventory.find(filter)
     .populate("collectorId", "name phone location")
+    .populate("reservedBy", "name phone location")
     .sort({ createdAt: -1 })
     .limit(50);
   res.json(items);

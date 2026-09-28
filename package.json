@@ -4,7 +4,8 @@
   "scripts": {
     "dev": "concurrently \"npm run dev --prefix web\" \"npm run dev --prefix server\"",
     "build": "npm run build --prefix web",
-    "install:all": "npm install && npm install --prefix web && npm install --prefix server"
+    "install:all": "npm install && npm install --prefix web && npm install --prefix server",
+    "seed": "npm run seed --prefix server"
   },
   "devDependencies": {
     "concurrently": "^9.1.2"

@@ -45,14 +45,17 @@ export type TKey =
   | "languageChanged"
   | "dashboardActionCitizen"
   | "dashboardActionCollector"
+  | "dashboardActionDealer"
   | "dashboardTitleCitizen"
   | "dashboardTitleCollector"
   | "dashboardTitleRecycler"
   | "dashboardTitleAdmin"
+  | "dashboardTitleDealer"
   | "dashboardSubtitleCitizen"
   | "dashboardSubtitleCollector"
   | "dashboardSubtitleRecycler"
   | "dashboardSubtitleAdmin"
+  | "dashboardSubtitleDealer"
   | "pickupUpdatedLive"
   | "pickupCreatedLive"
   | "publishStock"
@@ -103,10 +106,12 @@ const en: Record<TKey, string> = {
   languageChanged: "Language updated",
   dashboardActionCitizen: "Schedule pickup",
   dashboardActionCollector: "View pickup queue",
+  dashboardActionDealer: "Open ScrapUncle operations",
   dashboardTitleCitizen: "Your waste can create real value.",
   dashboardTitleCollector: "Plan a smarter, more profitable route.",
   dashboardTitleRecycler: "Reliable material supply, when you need it.",
   dashboardTitleAdmin: "Build a trusted circular city.",
+  dashboardTitleDealer: "Verified pickups. Fair weights. Instant settlement.",
   dashboardSubtitleCitizen:
     "Schedule pickup, track live status, and get paid by cash or UPI.",
   dashboardSubtitleCollector:
@@ -115,6 +120,8 @@ const en: Record<TKey, string> = {
     "Reserve verified stock from nearby collectors in real time.",
   dashboardSubtitleAdmin:
     "Manage users, market prices, and network analytics.",
+  dashboardSubtitleDealer:
+    "Run QR-verified doorstep, business and industrial scrap operations from one live desk.",
   pickupUpdatedLive: "Pickup status updated live",
   pickupCreatedLive: "New pickup added to the network",
   publishStock: "Publish collected material",
@@ -351,6 +358,7 @@ export function dashboardTitleKey(role: string): TKey {
     Citizen: "dashboardTitleCitizen",
     Collector: "dashboardTitleCollector",
     Recycler: "dashboardTitleRecycler",
+    "ScrapUncle Dealer": "dashboardTitleDealer",
     Admin: "dashboardTitleAdmin",
   };
   return map[role] || "dashboardTitleCitizen";
@@ -361,6 +369,7 @@ export function dashboardSubtitleKey(role: string): TKey {
     Citizen: "dashboardSubtitleCitizen",
     Collector: "dashboardSubtitleCollector",
     Recycler: "dashboardSubtitleRecycler",
+    "ScrapUncle Dealer": "dashboardSubtitleDealer",
     Admin: "dashboardSubtitleAdmin",
   };
   return map[role] || "dashboardSubtitleCitizen";
@@ -368,5 +377,6 @@ export function dashboardSubtitleKey(role: string): TKey {
 
 export function dashboardActionKey(role: string): TKey {
   if (role === "Citizen") return "dashboardActionCitizen";
+  if (role === "ScrapUncle Dealer") return "dashboardActionDealer";
   return "dashboardActionCollector";
 }

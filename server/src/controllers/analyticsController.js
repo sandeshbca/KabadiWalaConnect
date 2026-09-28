@@ -4,7 +4,7 @@ import { User } from "../models/User.js";
 export async function overview(_req, res) {
   const [pickups, collectors, inventory, materialBreakdown] = await Promise.all([
     Pickup.countDocuments(),
-    User.countDocuments({ role: "collector" }),
+    User.countDocuments({ role: { $in: ["collector", "dealer"] } }),
     Inventory.aggregate([
       { $match: { status: { $in: ["available", "reserved", "collected"] } } },
       { $group: { _id: null, total: { $sum: "$weightKg" } } },
