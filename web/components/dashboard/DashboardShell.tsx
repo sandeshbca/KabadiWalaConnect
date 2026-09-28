@@ -53,7 +53,7 @@ import {
 import { useI18n, speakText } from "@/lib/i18n";
 import { SCRAP_CATEGORIES, SERVICE_OPTIONS } from "@/lib/scrapCatalog";
 
-const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
+const API = process.env.NEXT_PUBLIC_API_URL || " https://kabadiwalaconnect-jxh4.onrender.com";
 
 type ApiPickup = {
   _id: string;
